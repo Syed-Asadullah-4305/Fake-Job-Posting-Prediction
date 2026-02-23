@@ -1,7 +1,5 @@
-﻿Flask
-gunicorntensorflow-cpu==2.15.0
-scikit-learn
-numpy
-pandas
+Flask
 gunicorn
-
+tensorflow-cpu==2.15.0
+numpy
+scikit-learn
