@@ -1,0 +1,79 @@
+import os
+
+# MUST be before tensorflow import
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
+import pickle
+import tensorflow as tf
+from flask import Flask, request, render_template
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+app = Flask(__name__)
+
+# ===============================
+# LOAD TOKENIZER
+# ===============================
+print("Loading tokenizer...")
+with open("tokenizer.pkl", "rb") as f:
+    tokenizer = pickle.load(f)
+print("Tokenizer loaded!")
+
+# ===============================
+# LOAD KERAS MODEL (NOT TFLITE)
+# ===============================
+print("Loading Keras model...")
+model = tf.keras.models.load_model("fake_job_lstm_model.h5")
+print("Model loaded successfully!")
+
+# ===============================
+# CONSTANTS
+# ===============================
+MAX_SEQUENCE_LENGTH = 200
+
+# ===============================
+# PREPROCESSING
+# ===============================
+def preprocess_text(text):
+    seq = tokenizer.texts_to_sequences([text])
+    padded = pad_sequences(
+        seq,
+        maxlen=MAX_SEQUENCE_LENGTH,
+        padding="post",
+        truncating="post"
+    )
+    return padded
+
+# ===============================
+# ROUTES
+# ===============================
+@app.route("/", methods=["GET"])
+def home():
+    return render_template("index.html")
+
+@app.route("/predict", methods=["POST"])
+def predict():
+    combined_text = request.form.get("combined_text")
+
+    if not combined_text or combined_text.strip() == "":
+        return render_template(
+            "index.html",
+            prediction="❗ Please enter the job description."
+        )
+
+    input_data = preprocess_text(combined_text)
+
+    prediction = model.predict(input_data, verbose=0)[0][0]
+
+    result = "Fraudulent 🚨" if prediction > 0.7 else "Legitimate ✅"
+
+    return render_template(
+        "index.html",
+        prediction=f"The job post is: {result}"
+    )
+
+# ===============================
+# MAIN
+# ===============================
+if __name__ == "__main__":
+    app.run(debug=True)
